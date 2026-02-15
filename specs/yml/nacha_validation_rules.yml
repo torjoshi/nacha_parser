@@ -1,0 +1,552 @@
+---
+# NACHA File Validation Rules
+# Version: 1.0
+# Purpose: Specific validation rules and check procedures for NACHA files
+
+record_type_validations:
+  # ========================================================================
+  # RECORD TYPE 1: FILE HEADER VALIDATIONS
+  # ========================================================================
+  type_1:
+    name: "File Header Validations"
+    
+    rules:
+      record_type_must_be_1:
+        position: 1
+        expected_value: "1"
+        severity: "critical"
+        message: "Record type must be 1 for File Header Record"
+      
+      priority_code_valid:
+        position: [2, 3]
+        expected_values: ["00"]
+        severity: "error"
+        message: "Priority code must be 00"
+      
+      imm_destination_is_numeric:
+        position: [4, 12]
+        type: "numeric"
+        length: 9
+        severity: "critical"
+        message: "Immediate destination must be 9 numeric characters"
+      
+      imm_destination_valid_routing:
+        position: [4, 12]
+        validation_type: "routing_check_digit"
+        severity: "error"
+        message: "Immediate destination has invalid routing check digit"
+      
+      imm_origin_is_numeric:
+        position: [13, 21]
+        type: "numeric"
+        length: 9
+        severity: "critical"
+        message: "Immediate origin must be 9 numeric characters"
+      
+      imm_origin_valid_routing:
+        position: [13, 21]
+        validation_type: "routing_check_digit"
+        severity: "error"
+        message: "Immediate origin has invalid routing check digit"
+      
+      file_creation_date_valid:
+        position: [22, 27]
+        type: "numeric"
+        length: 6
+        format: "YYMMDD"
+        severity: "critical"
+        message: "File creation date must be valid YYMMDD"
+      
+      file_creation_date_not_future:
+        position: [22, 27]
+        rule: "date_not_in_future"
+        severity: "warning"
+        message: "File creation date is in the future"
+      
+      file_creation_time_valid:
+        position: [28, 31]
+        type: "numeric"
+        length: 4
+        format: "HHMM"
+        optional: true
+        severity: "warning"
+        message: "File creation time must be valid HHMM or spaces"
+      
+      file_id_modifier_valid:
+        position: 32
+        type: "alphanumeric"
+        length: 1
+        severity: "error"
+        message: "File ID modifier must be alphanumeric (A-Z, 0-9)"
+      
+      record_size_code_valid:
+        position: [33, 35]
+        expected_values: ["094"]
+        severity: "critical"
+        message: "Record size code must be 094"
+      
+      blocking_factor_valid:
+        position: [36, 37]
+        type: "numeric"
+        length: 2
+        severity: "warning"
+        message: "Blocking factor should be numeric (typically 10)"
+      
+      format_code_valid:
+        position: 38
+        expected_values: ["1"]
+        severity: "critical"
+        message: "Format code must be 1 (US data)"
+      
+      dest_name_length:
+        position: [39, 62]
+        max_length: 23
+        type: "alphanumeric"
+        severity: "error"
+        message: "Immediate destination name must be max 23 characters"
+      
+      origin_name_length:
+        position: [63, 86]
+        max_length: 23
+        type: "alphanumeric"
+        severity: "error"
+        message: "Immediate origin name must be max 23 characters"
+      
+      reference_code_length:
+        position: [87, 94]
+        max_length: 8
+        type: "alphanumeric"
+        severity: "warning"
+        message: "Reference code should be max 8 characters"
+
+  # ========================================================================
+  # RECORD TYPE 5: BATCH HEADER VALIDATIONS
+  # ========================================================================
+  type_5:
+    name: "Batch Header Validations"
+    
+    rules:
+      record_type_must_be_5:
+        position: 1
+        expected_value: "5"
+        severity: "critical"
+        message: "Record type must be 5 for Batch Header Record"
+      
+      service_class_valid:
+        position: [2, 3]
+        expected_values: ["200", "220", "225"]
+        severity: "critical"
+        message: "Service class code must be 200, 220, or 225"
+      
+      company_name_not_empty:
+        position: [4, 20]
+        type: "alphanumeric"
+        length: 16
+        not_empty: true
+        severity: "error"
+        message: "Company name is required (max 16 characters)"
+      
+      company_id_valid:
+        position: [41, 48]
+        length: 8
+        type: "alphanumeric"
+        severity: "error"
+        message: "Company identification must be 8 alphanumeric characters"
+      
+      sec_code_valid:
+        position: [49, 51]
+        expected_values: ["PPD", "CCD", "CTX", "ACK", "ATX", "STP", "TRC", "TRX"]
+        length: 3
+        severity: "critical"
+        message: "SEC code must be valid (PPD, CCD, CTX, ACK, ATX, STP, TRC, TRX)"
+      
+      entry_effective_date_valid:
+        position: [52, 57]
+        type: "numeric"
+        format: "YYMMDD"
+        severity: "critical"
+        message: "Entry effective date must be valid YYMMDD"
+      
+      entry_effective_date_business_day:
+        position: [52, 57]
+        rule: "is_business_day"
+        severity: "warning"
+        message: "Entry effective date should be a business day"
+      
+      entry_effective_date_future:
+        position: [52, 57]
+        rule: "is_future_date"
+        severity: "warning"
+        message: "Entry effective date should be in future (typically 1-2 days)"
+      
+      settlement_date_valid:
+        position: [58, 60]
+        type: "numeric"
+        format: "JJJ"
+        severity: "error"
+        message: "Settlement date must be valid (Julian day 001-366 or 0/1/2)"
+      
+      originator_status_valid:
+        position: 61
+        expected_values: ["0"]
+        severity: "error"
+        message: "Originator status code must be 0"
+      
+      originating_dfi_id_valid:
+        position: [62, 68]
+        type: "numeric"
+        length: 7
+        severity: "error"
+        message: "Originating DFI ID must be 7 numeric digits"
+      
+      batch_number_valid:
+        position: [69, 72]
+        type: "numeric"
+        length: 4
+        range: [1, 9999]
+        severity: "error"
+        message: "Batch number must be 1-9999"
+      
+      addenda_indicator_valid:
+        position: 73
+        expected_values: ["0", "1"]
+        severity: "error"
+        message: "Addenda indicator must be 0 or 1"
+      
+      reserved_field_spaces:
+        position: [86, 94]
+        expected_value: "        "
+        severity: "warning"
+        message: "Reserved field should be spaces"
+
+  # ========================================================================
+  # RECORD TYPE 6: ENTRY DETAIL VALIDATIONS
+  # ========================================================================
+  type_6:
+    name: "Entry Detail Validations"
+    
+    rules:
+      record_type_must_be_6:
+        position: 1
+        expected_value: "6"
+        severity: "critical"
+        message: "Record type must be 6 for Entry Detail Record"
+      
+      transaction_code_valid:
+        position: [2, 3]
+        expected_values: ["22", "27", "32", "37", "42", "47"]
+        severity: "critical"
+        message: "Transaction code must be valid (22, 27, 32, 37, 42, 47)"
+      
+      receiving_dfi_id_valid:
+        position: [4, 11]
+        type: "numeric"
+        length: 8
+        severity: "critical"
+        message: "Receiving DFI ID must be 8 numeric digits"
+      
+      check_digit_valid:
+        position: 12
+        type: "numeric"
+        length: 1
+        validation_type: "routing_check_digit"
+        severity: "error"
+        message: "Check digit invalid for receiving DFI ID"
+      
+      dfi_account_not_empty:
+        position: [13, 29]
+        not_empty: true
+        max_length: 17
+        severity: "critical"
+        message: "DFI account number is required (max 17 characters)"
+      
+      amount_valid:
+        position: [30, 39]
+        type: "numeric"
+        length: 10
+        range: [0, 9999999999]
+        severity: "critical"
+        message: "Amount must be 0-9,999,999,999 cents (10 numeric digits)"
+      
+      amount_non_zero:
+        position: [30, 39]
+        rule: "not_zero"
+        severity: "warning"
+        message: "Amount is zero (should have non-zero value)"
+      
+      individual_name_not_empty:
+        position: [55, 76]
+        not_empty: true
+        max_length: 22
+        severity: "error"
+        message: "Individual name is required (max 22 characters)"
+      
+      addenda_indicator_valid:
+        position: 79
+        expected_values: ["0", "1"]
+        severity: "error"
+        message: "Addenda indicator must be 0 or 1"
+      
+      trace_number_valid:
+        position: [80, 94]
+        type: "numeric"
+        length: 15
+        severity: "critical"
+        message: "Trace number must be 15 numeric digits"
+      
+      trace_number_unique:
+        position: [80, 94]
+        rule: "unique_in_file"
+        severity: "error"
+        message: "Trace number must be unique within file"
+      
+      trace_number_format:
+        position: [80, 94]
+        rule: "trace_format_valid"
+        severity: "warning"
+        message: "Trace number should be routing (9) + sequence (6)"
+
+  # ========================================================================
+  # RECORD TYPE 7: ADDENDA VALIDATIONS
+  # ========================================================================
+  type_7:
+    name: "Addenda Record Validations"
+    
+    rules:
+      record_type_must_be_7:
+        position: 1
+        expected_value: "7"
+        severity: "critical"
+        message: "Record type must be 7 for Addenda Record"
+      
+      addenda_type_valid:
+        position: [2, 3]
+        expected_values: ["01", "02", "05"]
+        severity: "critical"
+        message: "Addenda type code must be 01, 02, or 05"
+      
+      sequence_number_valid:
+        position: [84, 87]
+        type: "numeric"
+        length: 4
+        range: [1, 9999]
+        severity: "error"
+        message: "Addenda sequence number must be 0001-9999"
+      
+      entry_sequence_valid:
+        position: [88, 94]
+        type: "numeric"
+        length: 7
+        rule: "references_valid_entry"
+        severity: "error"
+        message: "Entry detail sequence number must reference valid entry"
+
+  # ========================================================================
+  # RECORD TYPE 8: BATCH CONTROL VALIDATIONS
+  # ========================================================================
+  type_8:
+    name: "Batch Control Validations"
+    
+    rules:
+      record_type_must_be_8:
+        position: 1
+        expected_value: "8"
+        severity: "critical"
+        message: "Record type must be 8 for Batch Control Record"
+      
+      service_class_matches_header:
+        position: [2, 3]
+        references: "batch_header.service_class"
+        severity: "critical"
+        message: "Service class code must match batch header"
+      
+      entry_count_matches:
+        position: [4, 9]
+        rule: "matches_actual_entries"
+        severity: "critical"
+        message: "Entry/addenda count must match actual records"
+      
+      entry_hash_valid:
+        position: [10, 19]
+        type: "numeric"
+        length: 10
+        rule: "valid_entry_hash"
+        severity: "error"
+        message: "Entry hash calculation is invalid"
+      
+      total_debits_valid:
+        position: [20, 29]
+        type: "numeric"
+        length: 10
+        rule: "matches_actual_debits"
+        severity: "critical"
+        message: "Total debit amount must match actual debits"
+      
+      total_credits_valid:
+        position: [30, 39]
+        type: "numeric"
+        length: 10
+        rule: "matches_actual_credits"
+        severity: "critical"
+        message: "Total credit amount must match actual credits"
+      
+      company_id_matches_header:
+        position: [40, 47]
+        references: "batch_header.company_id"
+        severity: "critical"
+        message: "Company identification must match batch header"
+      
+      originating_dfi_matches:
+        position: [73, 79]
+        references: "batch_header.originating_dfi"
+        severity: "critical"
+        message: "Originating DFI ID must match batch header"
+      
+      batch_number_matches:
+        position: [80, 83]
+        references: "batch_header.batch_number"
+        severity: "critical"
+        message: "Batch number must match batch header"
+
+  # ========================================================================
+  # RECORD TYPE 9: FILE CONTROL VALIDATIONS
+  # ========================================================================
+  type_9:
+    name: "File Control Validations"
+    
+    rules:
+      record_type_must_be_9:
+        position: 1
+        expected_value: "9"
+        severity: "critical"
+        message: "Record type must be 9 for File Control Record"
+      
+      batch_count_matches:
+        position: [2, 7]
+        rule: "matches_actual_batches"
+        severity: "critical"
+        message: "Batch count must match actual batches in file"
+      
+      entry_count_matches:
+        position: [14, 19]
+        rule: "matches_actual_entries"
+        severity: "critical"
+        message: "Entry/addenda count must match sum of all batches"
+      
+      file_entry_hash_valid:
+        position: [20, 29]
+        type: "numeric"
+        length: 10
+        rule: "valid_file_hash"
+        severity: "error"
+        message: "File entry hash must match sum of batch hashes"
+      
+      total_debits_balanced:
+        position: [30, 39]
+        rule: "matches_actual_file_debits"
+        severity: "critical"
+        message: "Total debit amount must match sum of all batches"
+      
+      total_credits_balanced:
+        position: [40, 49]
+        rule: "matches_actual_file_credits"
+        severity: "critical"
+        message: "Total credit amount must match sum of all batches"
+      
+      file_is_balanced:
+        rule: "file_debits_equals_credits"
+        severity: "critical"
+        message: "Total debits must equal total credits in file"
+
+# ========================================================================
+# FILE-LEVEL VALIDATIONS
+# ========================================================================
+file_level_rules:
+  structure:
+    first_record_type_1:
+      rule: "first_record_is_type_1"
+      severity: "critical"
+      message: "First record must be File Header (Type 1)"
+    
+    last_record_type_9:
+      rule: "last_record_is_type_9"
+      severity: "critical"
+      message: "Last record must be File Control (Type 9)"
+    
+    valid_hierarchy:
+      rule: "records_in_valid_order"
+      severity: "critical"
+      message: "Records must follow valid hierarchy: 1, [5,6/7,8]*, 9"
+  
+  counts:
+    minimum_records:
+      rule: "has_minimum_4_records"
+      min_count: 4
+      severity: "critical"
+      message: "File must have at least Header, Batch Header, Entry, Batch Control, File Control"
+    
+    batch_count_accuracy:
+      rule: "file_control_batch_count_matches"
+      severity: "critical"
+      message: "File control batch count must match actual batches"
+    
+    entry_count_accuracy:
+      rule: "file_control_entry_count_matches"
+      severity: "critical"
+      message: "File control entry count must match actual entries + addenda"
+  
+  totals:
+    file_balance:
+      rule: "total_debits_equals_total_credits"
+      severity: "critical"
+      message: "Total file debits must equal total credits"
+    
+    hash_validation:
+      rule: "file_hash_valid"
+      severity: "error"
+      message: "File entry hash must be valid"
+    
+    amount_ranges:
+      rule: "all_amounts_non_negative"
+      severity: "critical"
+      message: "All amounts must be non-negative"
+
+# ========================================================================
+# HELPER VALIDATION FUNCTIONS
+# ========================================================================
+validation_helpers:
+  routing_check_digit:
+    description: "Calculate and verify NACHA routing number check digit"
+    formula: "(7*d1 + 3*d2 + 9*d3 + 7*d4 + 3*d5 + 9*d6 + 7*d7 + 3*d8) mod 10"
+    example: "121000248"
+    calculation: "(7*1 + 3*2 + 9*1 + 7*0 + 3*0 + 9*0 + 7*2 + 3*4) mod 10 = 53 mod 10 = 3"
+    check_digit_position: 9
+  
+  entry_hash:
+    description: "Calculate batch/file entry hash from DFI IDs"
+    formula: "sum(first_8_digits_of_each_dfi) mod 10000000000"
+  
+  date_validation:
+    format: "YYMMDD"
+    rules:
+      - "YY: 00-99 (century: 00-29=2000-2029, 30-99=1930-1999)"
+      - "MM: 01-12"
+      - "DD: 01-31 (must be valid for month)"
+  
+  amount_validation:
+    format: "10 digits, zero-filled"
+    range: "0 to 9,999,999,999 cents"
+    conversion: "dollars to cents multiply by 100"
+  
+  trace_number:
+    format: "15 numeric digits"
+    structure: "originating_routing(9) + sequence(6)"
+    uniqueness: "must be unique within file"
+
+# ========================================================================
+# VERSION HISTORY
+# ========================================================================
+version_history:
+  - version: "1.0"
+    date: "2026-02-14"
+    description: "Initial validation rules based on NACHA 2025 Operating Rules"

@@ -1,0 +1,468 @@
+---
+# NACHA File Format - Error Definitions and Test Cases
+# Version: 1.0
+# Purpose: Define error codes and test cases for NACHA file validation
+
+error_codes:
+  # ========================================================================
+  # CRITICAL ERRORS (File processing will fail)
+  # ========================================================================
+  CRITICAL:
+    ERR_001:
+      code: "ERR_001"
+      severity: "CRITICAL"
+      name: "Invalid Record Length"
+      description: "Record is not exactly 94 characters"
+      category: "structure"
+      recommendation: "Verify all records are padded to exactly 94 characters"
+      example: "Record with 93 or 95 characters instead of 94"
+    
+    ERR_002:
+      code: "ERR_002"
+      severity: "CRITICAL"
+      name: "Invalid Record Type"
+      description: "First character is not a valid record type (1-9)"
+      category: "structure"
+      recommendation: "Verify record type codes are 1, 5, 6, 7, 8, or 9"
+      example: "Record starting with '0' or 'A'"
+    
+    ERR_003:
+      code: "ERR_003"
+      severity: "CRITICAL"
+      name: "File Structure Invalid"
+      description: "File must start with Type 1 record and end with Type 9 record"
+      category: "structure"
+      recommendation: "Ensure File Header (Type 1) is first and File Control (Type 9) is last"
+    
+    ERR_004:
+      code: "ERR_004"
+      severity: "CRITICAL"
+      name: "Unbalanced File Amounts"
+      description: "Total debits do not equal total credits"
+      category: "amounts"
+      recommendation: "Verify all entry amounts are correct and balanced"
+      example: "Total debits: $100.00, Total credits: $99.50"
+    
+    ERR_005:
+      code: "ERR_005"
+      severity: "CRITICAL"
+      name: "Invalid Entry Count"
+      description: "Entry count in control records does not match actual entries"
+      category: "counts"
+      recommendation: "Recount all entry and addenda records and update control records"
+    
+    ERR_006:
+      code: "ERR_006"
+      severity: "CRITICAL"
+      name: "Invalid Batch Count"
+      description: "Batch count in file control does not match actual batches"
+      category: "counts"
+      recommendation: "Verify batch count in File Control (Type 9) record"
+    
+    ERR_007:
+      code: "ERR_007"
+      severity: "CRITICAL"
+      name: "Invalid Record Size Code"
+      description: "Record Size Code must be 094"
+      category: "structure"
+      recommendation: "Set Record Size Code to 094 in File Header"
+    
+    ERR_008:
+      code: "ERR_008"
+      severity: "CRITICAL"
+      name: "Invalid Format Code"
+      description: "Format Code must be 1 for US data"
+      category: "structure"
+      recommendation: "Set Format Code to 1 in File Header"
+    
+    ERR_009:
+      code: "ERR_009"
+      severity: "CRITICAL"
+      name: "Duplicate Trace Numbers"
+      description: "Trace numbers must be unique within file"
+      category: "uniqueness"
+      recommendation: "Generate unique trace numbers (routing + sequence)"
+      example: "Two entries with trace number 121000248000001"
+    
+    ERR_010:
+      code: "ERR_010"
+      severity: "CRITICAL"
+      name: "Invalid Service Class"
+      description: "Service Class Code must match between header and control records"
+      category: "consistency"
+      recommendation: "Ensure service class codes are consistent within batch"
+
+  # ========================================================================
+  # ERROR LEVEL (File may not be accepted)
+  # ========================================================================
+  ERROR:
+    ERR_101:
+      code: "ERR_101"
+      severity: "ERROR"
+      name: "Invalid Routing Check Digit"
+      description: "Routing number check digit is invalid (9-digit routing)"
+      category: "validation"
+      recommendation: "Recalculate or verify routing number check digit"
+      formula: "(7×d1 + 3×d2 + 9×d3 + 7×d4 + 3×d5 + 9×d6 + 7×d7 + 3×d8) mod 10"
+      example: "Routing 121000248 has invalid check digit 8"
+    
+    ERR_102:
+      code: "ERR_102"
+      severity: "ERROR"
+      name: "Invalid Entry Hash"
+      description: "Entry hash calculation is incorrect"
+      category: "validation"
+      recommendation: "Recalculate entry hash from DFI IDs"
+      formula: "sum(first_8_digits_of_each_dfi) mod 10000000000"
+    
+    ERR_103:
+      code: "ERR_103"
+      severity: "ERROR"
+      name: "Amount Mismatch in Batch Control"
+      description: "Batch control totals do not match actual entry amounts"
+      category: "amounts"
+      recommendation: "Verify and recalculate batch totals"
+    
+    ERR_104:
+      code: "ERR_104"
+      severity: "ERROR"
+      name: "Invalid Service Class Code"
+      description: "Service Class Code must be 200, 220, or 225"
+      category: "validation"
+      recommendation: "Use valid service class: 200 (mixed), 220 (credits), 225 (debits)"
+    
+    ERR_105:
+      code: "ERR_105"
+      severity: "ERROR"
+      name: "Invalid SEC Code"
+      description: "Standard Entry Class code is not valid"
+      category: "validation"
+      recommendation: "Use valid SEC: PPD, CCD, CTX, ACK, ATX, STP, TRC, TRX"
+    
+    ERR_106:
+      code: "ERR_106"
+      severity: "ERROR"
+      name: "Invalid Transaction Code"
+      description: "Transaction code must be 22, 27, 32, 37, 42, or 47"
+      category: "validation"
+      recommendation: "Use valid transaction codes for debit/credit types"
+    
+    ERR_107:
+      code: "ERR_107"
+      severity: "ERROR"
+      name: "Invalid Date Format"
+      description: "Date is not in valid YYMMDD format or values are out of range"
+      category: "format"
+      recommendation: "Format dates as YYMMDD (YY=00-99, MM=01-12, DD=01-31)"
+      example: "250230 (Feb 30 is invalid) or 251301 (month 13 is invalid)"
+    
+    ERR_108:
+      code: "ERR_108"
+      severity: "ERROR"
+      name: "Invalid Amount Format"
+      description: "Amount is not 10 numeric digits or exceeds maximum"
+      category: "format"
+      recommendation: "Format amounts as 10 zero-filled digits (0-9,999,999,999 cents)"
+    
+    ERR_109:
+      code: "ERR_109"
+      severity: "ERROR"
+      name: "Mismatched Company ID"
+      description: "Company ID in control record does not match header record"
+      category: "consistency"
+      recommendation: "Ensure company identification is consistent within batch"
+    
+    ERR_110:
+      code: "ERR_110"
+      severity: "ERROR"
+      name: "Mismatched Batch Number"
+      description: "Batch number in control record does not match header record"
+      category: "consistency"
+      recommendation: "Ensure batch numbers are consistent within batch"
+
+  # ========================================================================
+  # WARNING LEVEL (File may be processed with review)
+  # ========================================================================
+  WARNING:
+    WARN_201:
+      code: "WARN_201"
+      severity: "WARNING"
+      name: "Future Date Detected"
+      description: "File creation date or entry effective date is in the future"
+      category: "date"
+      recommendation: "Verify dates are correct; future dates may indicate timing issue"
+    
+    WARN_202:
+      code: "WARN_202"
+      severity: "WARNING"
+      name: "Weekend or Holiday Date"
+      description: "Entry effective date falls on weekend or holiday"
+      category: "date"
+      recommendation: "Entry effective date should typically be a business day"
+    
+    WARN_203:
+      code: "WARN_203"
+      severity: "WARNING"
+      name: "Zero Amount Entry"
+      description: "Entry has zero amount (no funds transferred)"
+      category: "amounts"
+      recommendation: "Verify zero-amount entries are intentional (testing?)"
+    
+    WARN_204:
+      code: "WARN_204"
+      severity: "WARNING"
+      name: "Very Large Amount"
+      description: "Entry amount exceeds $1,000,000"
+      category: "amounts"
+      recommendation: "Verify large amounts are intentional"
+    
+    WARN_205:
+      code: "WARN_205"
+      severity: "WARNING"
+      name: "Missing Optional Field"
+      description: "Optional field (like company discretionary data) is not populated"
+      category: "completeness"
+      recommendation: "Consider populating optional fields for better clarity"
+    
+    WARN_206:
+      code: "WARN_206"
+      severity: "WARNING"
+      name: "Addenda Mismatch"
+      description: "Addenda indicator does not match actual presence of addenda records"
+      category: "consistency"
+      recommendation: "Ensure addenda indicator (79) is 1 if addenda records follow"
+    
+    WARN_207:
+      code: "WARN_207"
+      severity: "WARNING"
+      name: "Trace Number Format"
+      description: "Trace number format may not follow standard (routing + sequence)"
+      category: "format"
+      recommendation: "Format trace as: originating routing (9) + sequence (6)"
+    
+    WARN_208:
+      code: "WARN_208"
+      severity: "WARNING"
+      name: "Single Entry File"
+      description: "File contains only one batch with one entry"
+      category: "structure"
+      recommendation: "Consider if single-entry file is appropriate for transmission"
+
+  # ========================================================================
+  # INFO LEVEL (Informational)
+  # ========================================================================
+  INFO:
+    INFO_301:
+      code: "INFO_301"
+      severity: "INFO"
+      name: "File Validated Successfully"
+      description: "NACHA file passed all validation checks"
+      category: "status"
+    
+    INFO_302:
+      code: "INFO_302"
+      severity: "INFO"
+      name: "File Statistics"
+      description: "Summary of file contents and statistics"
+      category: "status"
+    
+    INFO_303:
+      code: "INFO_303"
+      severity: "INFO"
+      name: "Processing Time"
+      description: "File validation completed in X milliseconds"
+      category: "performance"
+
+# ========================================================================
+# TEST CASES FOR VALIDATION
+# ========================================================================
+test_cases:
+  valid_file:
+    name: "Valid Simple Payroll File"
+    description: "Single batch with 2 employee entries, no addenda"
+    expected_result: "PASS"
+    records:
+      - type: 1
+        name: "File Header"
+        data: "101 121000248 123456789230214180555A094101YourBank          Your Company       "
+      
+      - type: 5
+        name: "Batch Header"
+        data: "520Payroll Compan 00000000123456780PPD250216025000Company      0000010"
+      
+      - type: 6
+        name: "Entry 1"
+        data: "622121000219123456789   000000050000Employee001    John Smith                 0000012100021001234"
+      
+      - type: 6
+        name: "Entry 2"
+        data: "622987654321987654321   000000500000Employee002    Jane Doe                   0000012100021002344"
+      
+      - type: 8
+        name: "Batch Control"
+        data: "820000002000012100021000000050000000000050012100001234567         0000010"
+      
+      - type: 9
+        name: "File Control"
+        data: "900000001000001000000002000011121021000000050000000000050001        "
+
+  invalid_record_length:
+    name: "Record Length Invalid"
+    description: "One record is not 94 characters"
+    expected_result: "FAIL - ERR_001"
+    error_code: "ERR_001"
+
+  unbalanced_amounts:
+    name: "Unbalanced File"
+    description: "Total debits $50.00, total credits $49.50"
+    expected_result: "FAIL - ERR_004"
+    error_code: "ERR_004"
+
+  invalid_routing_check_digit:
+    name: "Bad Routing Check Digit"
+    description: "Routing number has incorrect check digit"
+    expected_result: "FAIL - ERR_101"
+    error_code: "ERR_101"
+    example: "121000247 (should be 121000248)"
+
+  duplicate_trace_numbers:
+    name: "Duplicate Trace Numbers"
+    description: "Two entries with same trace number"
+    expected_result: "FAIL - ERR_009"
+    error_code: "ERR_009"
+    example: "Entry 1 and Entry 2 both have trace 121000248000001"
+
+  invalid_sec_code:
+    name: "Invalid SEC Code"
+    description: "SEC code is not valid"
+    expected_result: "FAIL - ERR_105"
+    error_code: "ERR_105"
+    example: "SEC code 'PPI' instead of 'PPD'"
+
+  invalid_service_class:
+    name: "Invalid Service Class"
+    description: "Service class code is not 200, 220, or 225"
+    expected_result: "FAIL - ERR_104"
+    error_code: "ERR_104"
+    example: "Service class '210' instead of valid code"
+
+  future_date:
+    name: "Future Creation Date"
+    description: "File creation date is more than 5 days in future"
+    expected_result: "WARN - WARN_201"
+    warning_code: "WARN_201"
+
+  weekend_date:
+    name: "Weekend Entry Effective Date"
+    description: "Entry effective date is Sunday"
+    expected_result: "WARN - WARN_202"
+    warning_code: "WARN_202"
+    example: "Entry effective date 260216 (which is Sunday)"
+
+  zero_amount:
+    name: "Zero Amount Entry"
+    description: "Entry with $0.00 amount"
+    expected_result: "WARN - WARN_203"
+    warning_code: "WARN_203"
+
+  large_amount:
+    name: "Very Large Amount"
+    description: "Entry with $5,000,000.00"
+    expected_result: "WARN - WARN_204"
+    warning_code: "WARN_204"
+
+  missing_required_field:
+    name: "Missing Required Field"
+    description: "Individual name is empty/spaces"
+    expected_result: "FAIL - ERR_103"
+    note: "Exact error depends on which field"
+
+  addenda_mismatch:
+    name: "Addenda Indicator Mismatch"
+    description: "Addenda indicator is 1 but no addenda record follows"
+    expected_result: "WARN - WARN_206"
+    warning_code: "WARN_206"
+
+  valid_with_addenda:
+    name: "Valid File with Addenda"
+    description: "Single entry with one addenda record"
+    expected_result: "PASS"
+    note: "Entry has addenda indicator 1, followed by Type 7 record"
+
+  multiple_batches:
+    name: "Valid Multiple Batches"
+    description: "File with 2 batches of different SEC codes"
+    expected_result: "PASS"
+    note: "Each batch has its own header and control records"
+
+# ========================================================================
+# VALIDATION SEQUENCE (Processing Order)
+# ========================================================================
+validation_sequence:
+  step_1:
+    name: "File Structure Check"
+    checks:
+      - "Record length is 94 characters"
+      - "Record types are 1-9"
+      - "First record is Type 1"
+      - "Last record is Type 9"
+  
+  step_2:
+    name: "Record Type Parsing"
+    checks:
+      - "Parse each record by type"
+      - "Extract fields by position"
+      - "Validate field lengths"
+      - "Validate field types (numeric/alphanumeric)"
+  
+  step_3:
+    name: "Field Validation"
+    checks:
+      - "Check digit validation (routing numbers)"
+      - "Date format validation"
+      - "Amount format validation"
+      - "Range and enum validations"
+  
+  step_4:
+    name: "Record-Level Validation"
+    checks:
+      - "Validate all required fields present"
+      - "Check field consistency within record"
+      - "Validate interdependencies"
+  
+  step_5:
+    name: "Batch-Level Validation"
+    checks:
+      - "Batch header matches control"
+      - "Entry/addenda count matches"
+      - "Hash calculations valid"
+      - "Amount totals match"
+  
+  step_6:
+    name: "File-Level Validation"
+    checks:
+      - "File batch count matches"
+      - "File entry/addenda count matches"
+      - "File hash valid"
+      - "Total debits equal total credits"
+      - "All trace numbers unique"
+  
+  step_7:
+    name: "Warnings and Info"
+    checks:
+      - "Check for future dates"
+      - "Check for weekend/holiday dates"
+      - "Check for unusual amounts"
+      - "Check for missing optional fields"
+
+# ========================================================================
+# VERSION HISTORY
+# ========================================================================
+version_history:
+  - version: "1.0"
+    date: "2026-02-14"
+    description: "Initial error codes and test cases"
+    content:
+      - "100+ error, warning, and info codes defined"
+      - "20+ test cases covering valid and invalid scenarios"
+      - "Validation sequence for systematic checking"

@@ -1,0 +1,766 @@
+---
+# NACHA File Format Validation Schema
+# Version: 1.0
+# Based on: NACHA Operating Rules 2025
+# Purpose: Define validation rules for NACHA/ACH payment files
+
+nacha_file:
+  description: "NACHA ACH payment file structure"
+  version: "2025"
+  record_length: 94
+  character_set: "ASCII"
+  
+  # File-level constraints
+  constraints:
+    - rule: "file_must_start_with_header"
+      description: "First record must be File Header (Type 1)"
+      severity: "error"
+    
+    - rule: "file_must_end_with_control"
+      description: "Last record must be File Control (Type 9)"
+      severity: "error"
+    
+    - rule: "balanced_amounts"
+      description: "Total debits must equal total credits in file"
+      severity: "error"
+    
+    - rule: "valid_entry_count"
+      description: "Entry count in control records must match actual entries"
+      severity: "error"
+    
+    - rule: "valid_batch_count"
+      description: "Batch count in file control must match actual batches"
+      severity: "error"
+
+# ============================================================================
+# RECORD TYPE 1: FILE HEADER RECORD
+# ============================================================================
+record_types:
+  type_1:
+    name: "File Header Record"
+    code: "1"
+    description: "Identifies the file and transmitting institution"
+    count_per_file: 1
+    position: "first"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["1"]
+        description: "File Header Record Identifier"
+      
+      priority_code:
+        position: [2, 3]
+        length: 2
+        type: "numeric"
+        valid_values: ["00"]
+        default: "00"
+        description: "Priority Code (00=standard)"
+      
+      immediate_destination:
+        position: [4, 12]
+        length: 9
+        type: "numeric"
+        description: "Receiving bank routing number (leading space + 8 digits)"
+        validation:
+          - "must_be_numeric"
+          - "length_9"
+          - "valid_routing_check_digit"
+      
+      immediate_origin:
+        position: [13, 21]
+        length: 9
+        type: "numeric"
+        description: "Originating bank routing number (leading space + 8 digits)"
+        validation:
+          - "must_be_numeric"
+          - "length_9"
+          - "valid_routing_check_digit"
+      
+      file_creation_date:
+        position: [22, 27]
+        length: 6
+        type: "numeric"
+        format: "YYMMDD"
+        description: "File creation date (YYMMDD)"
+        validation:
+          - "valid_date"
+          - "not_future_date"
+      
+      file_creation_time:
+        position: [28, 31]
+        length: 4
+        type: "numeric"
+        format: "HHMM"
+        description: "File creation time (HHMM), usually spaces"
+        optional: true
+      
+      file_id_modifier:
+        position: 32
+        length: 1
+        type: "alphanumeric"
+        description: "File ID Modifier (A-Z, 0-9)"
+        validation:
+          - "alphanumeric_range"
+      
+      record_size_code:
+        position: [33, 35]
+        length: 3
+        type: "numeric"
+        valid_values: ["094"]
+        default: "094"
+        description: "Record Size Code (094 for standard)"
+      
+      blocking_factor:
+        position: [36, 37]
+        length: 2
+        type: "numeric"
+        default: "10"
+        description: "Blocking Factor (blocks per record)"
+      
+      format_code:
+        position: 38
+        length: 1
+        type: "alphanumeric"
+        valid_values: ["1"]
+        default: "1"
+        description: "Format Code (1=US Data)"
+      
+      immediate_destination_name:
+        position: [39, 62]
+        length: 23
+        type: "alphanumeric"
+        description: "Receiving bank name (left-justified, space-filled)"
+        validation:
+          - "max_length_23"
+      
+      immediate_origin_name:
+        position: [63, 86]
+        length: 23
+        type: "alphanumeric"
+        description: "Originating bank/company name (left-justified, space-filled)"
+        validation:
+          - "max_length_23"
+      
+      reference_code:
+        position: [87, 94]
+        length: 8
+        type: "alphanumeric"
+        description: "Reference Code (usually spaces)"
+        optional: true
+
+# ============================================================================
+# RECORD TYPE 5: BATCH HEADER RECORD
+# ============================================================================
+  type_5:
+    name: "Batch Header Record"
+    code: "5"
+    description: "Identifies the batch of entries"
+    count_per_batch: 1
+    position: "before_entries"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["5"]
+        description: "Batch Header Record Identifier"
+      
+      service_class_code:
+        position: [2, 3]
+        length: 2
+        type: "numeric"
+        valid_values: ["200", "220", "225"]
+        description: "Service Class Code"
+        value_map:
+          "200": "Mixed debits and credits"
+          "220": "Credits only"
+          "225": "Debits only"
+      
+      company_name:
+        position: [4, 20]
+        length: 16
+        type: "alphanumeric"
+        description: "Company Name (left-justified, space-filled)"
+        validation:
+          - "max_length_16"
+      
+      company_discretionary_data:
+        position: [21, 40]
+        length: 20
+        type: "alphanumeric"
+        description: "Company Discretionary Data (optional reference)"
+        optional: true
+      
+      company_identification:
+        position: [41, 48]
+        length: 8
+        type: "alphanumeric"
+        description: "Company Identification (usually EIN, 9 digits)"
+        validation:
+          - "valid_ein_format"
+      
+      standard_entry_class:
+        position: [49, 51]
+        length: 3
+        type: "alphanumeric"
+        valid_values: ["PPD", "CCD", "CTX", "ACK", "ATX", "STP", "TRC", "TRX"]
+        description: "Standard Entry Class (SEC) Code"
+        value_map:
+          "PPD": "Pre-authorized Payments and Deposits"
+          "CCD": "Corporate Credit or Debit"
+          "CTX": "Corporate Trade Exchange"
+          "ACK": "Acknowledgment Entries"
+          "ATX": "Acknowledgment and Transaction"
+          "STP": "Settlement Entries"
+          "TRC": "Treasury Management Information"
+          "TRX": "Treasury Tax Information"
+      
+      entry_effective_date:
+        position: [52, 57]
+        length: 6
+        type: "numeric"
+        format: "YYMMDD"
+        description: "Entry Effective Date (when entries become effective)"
+        validation:
+          - "valid_date"
+          - "business_day"
+          - "not_past_date"
+      
+      settlement_date:
+        position: [58, 60]
+        length: 3
+        type: "numeric"
+        format: "JJJ"
+        description: "Settlement Date (Julian day or 0/1/2 for same/next/+2 days)"
+        validation:
+          - "valid_julian_or_settlement"
+      
+      originator_status_code:
+        position: 61
+        length: 1
+        type: "numeric"
+        valid_values: ["0"]
+        default: "0"
+        description: "Originator Status Code (0=originating DFI)"
+      
+      originating_dfi_id:
+        position: [62, 68]
+        length: 7
+        type: "numeric"
+        description: "Originating DFI ID (first 7 of 8-digit routing)"
+        validation:
+          - "numeric_7_digits"
+      
+      batch_number:
+        position: [69, 72]
+        length: 4
+        type: "numeric"
+        description: "Batch Number (1-9999)"
+        validation:
+          - "numeric_range"
+          - "range_1_to_9999"
+      
+      entry_addenda_indicator:
+        position: 73
+        length: 1
+        type: "numeric"
+        valid_values: ["0", "1"]
+        description: "Entry/Addenda Indicator (0=no addenda, 1=addenda present)"
+      
+      field_inclusion_indicator:
+        position: [74, 76]
+        length: 3
+        type: "numeric"
+        description: "Field Inclusion Indicator (not typically used)"
+        optional: true
+      
+      company_descriptive_date:
+        position: [77, 79]
+        length: 3
+        type: "numeric"
+        format: "JJJ"
+        description: "Company Descriptive Date (Julian date, optional)"
+        optional: true
+      
+      effective_entry_date:
+        position: [80, 85]
+        length: 6
+        type: "numeric"
+        format: "YYMMDD"
+        description: "Effective Entry Date (YYMMDD)"
+        validation:
+          - "valid_date"
+      
+      reserved:
+        position: [86, 94]
+        length: 9
+        type: "alphanumeric"
+        description: "Reserved (spaces)"
+
+# ============================================================================
+# RECORD TYPE 6: ENTRY DETAIL RECORD
+# ============================================================================
+  type_6:
+    name: "Entry Detail Record"
+    code: "6"
+    description: "Contains payment/receipt information"
+    count_per_batch: "1 to many"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["6"]
+        description: "Entry Detail Record Identifier"
+      
+      transaction_code:
+        position: [2, 3]
+        length: 2
+        type: "numeric"
+        valid_values: ["22", "27", "32", "37", "42", "47"]
+        description: "Transaction Code"
+        value_map:
+          "22": "Demand Deposit Account (credit)"
+          "27": "Demand Deposit Account (debit)"
+          "32": "Savings Account (debit)"
+          "37": "Savings Account (credit)"
+          "42": "Checking Account (debit)"
+          "47": "Checking Account (credit)"
+      
+      receiving_dfi_id:
+        position: [4, 11]
+        length: 8
+        type: "numeric"
+        description: "Receiving DFI ID (8-digit routing number)"
+        validation:
+          - "numeric_8_digits"
+      
+      check_digit:
+        position: 12
+        length: 1
+        type: "numeric"
+        description: "Check digit of receiving DFI ID"
+        validation:
+          - "valid_routing_check_digit_for_dfi"
+      
+      dfi_account_number:
+        position: [13, 29]
+        length: 17
+        type: "alphanumeric"
+        description: "DFI Account Number (left-justified, space-filled)"
+        validation:
+          - "max_length_17"
+          - "not_empty"
+      
+      amount:
+        position: [30, 39]
+        length: 10
+        type: "numeric"
+        description: "Amount in cents (zero-filled)"
+        validation:
+          - "numeric_10_digits"
+          - "non_negative"
+          - "max_value_9999999999"
+      
+      individual_id_number:
+        position: [40, 54]
+        length: 15
+        type: "alphanumeric"
+        description: "Individual ID Number (receiver ID or reference)"
+        validation:
+          - "max_length_15"
+      
+      individual_name:
+        position: [55, 76]
+        length: 22
+        type: "alphanumeric"
+        description: "Individual Name (left-justified, space-filled)"
+        validation:
+          - "max_length_22"
+          - "not_empty"
+      
+      discretionary_data:
+        position: [77, 78]
+        length: 2
+        type: "alphanumeric"
+        description: "Discretionary Data (usually spaces)"
+        optional: true
+      
+      addenda_indicator:
+        position: 79
+        length: 1
+        type: "numeric"
+        valid_values: ["0", "1"]
+        description: "Addenda Indicator (0=no addenda, 1=addenda present)"
+      
+      trace_number:
+        position: [80, 94]
+        length: 15
+        type: "numeric"
+        description: "Trace Number (originating routing 9-digit + sequence 6-digit)"
+        validation:
+          - "numeric_15_digits"
+          - "unique_per_file"
+          - "valid_trace_format"
+
+# ============================================================================
+# RECORD TYPE 7: ADDENDA RECORD
+# ============================================================================
+  type_7:
+    name: "Addenda Record"
+    code: "7"
+    description: "Additional payment-related information (optional)"
+    count_per_entry: "0 to many"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["7"]
+        description: "Addenda Record Identifier"
+      
+      addenda_type_code:
+        position: [2, 3]
+        length: 2
+        type: "numeric"
+        valid_values: ["01", "02", "05"]
+        description: "Addenda Type Code"
+        value_map:
+          "01": "PPD Addenda"
+          "02": "CTX Addenda"
+          "05": "CCD Addenda"
+      
+      payment_related_information:
+        position: [4, 83]
+        length: 80
+        type: "alphanumeric"
+        description: "Payment-Related Information (invoice details, etc.)"
+      
+      sequence_number:
+        position: [84, 87]
+        length: 4
+        type: "numeric"
+        description: "Addenda Sequence Number (0001-9999)"
+        validation:
+          - "numeric_4_digits"
+          - "range_0001_to_9999"
+      
+      entry_detail_sequence_number:
+        position: [88, 94]
+        length: 7
+        type: "numeric"
+        description: "Entry Detail Sequence Number (corresponding entry)"
+        validation:
+          - "numeric_7_digits"
+          - "must_reference_valid_entry"
+
+# ============================================================================
+# RECORD TYPE 8: BATCH CONTROL RECORD
+# ============================================================================
+  type_8:
+    name: "Batch Control Record"
+    code: "8"
+    description: "Provides control totals for a batch"
+    count_per_batch: 1
+    position: "after_entries"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["8"]
+        description: "Batch Control Record Identifier"
+      
+      service_class_code:
+        position: [2, 3]
+        length: 2
+        type: "numeric"
+        valid_values: ["200", "220", "225"]
+        description: "Service Class Code (must match batch header)"
+        validation:
+          - "must_match_batch_header"
+      
+      entry_addenda_count:
+        position: [4, 9]
+        length: 6
+        type: "numeric"
+        description: "Entry/Addenda Count (entries + addenda in batch)"
+        validation:
+          - "numeric_6_digits"
+          - "must_match_actual_count"
+      
+      entry_hash:
+        position: [10, 19]
+        length: 10
+        type: "numeric"
+        description: "Entry Hash (sum of DFI IDs mod 10,000,000,000)"
+        validation:
+          - "numeric_10_digits"
+          - "valid_entry_hash_calculation"
+      
+      total_debit_entry_dollar_amount:
+        position: [20, 29]
+        length: 10
+        type: "numeric"
+        description: "Total Debit Entry Dollar Amount (cents)"
+        validation:
+          - "numeric_10_digits"
+          - "non_negative"
+          - "must_match_actual_debits"
+      
+      total_credit_entry_dollar_amount:
+        position: [30, 39]
+        length: 10
+        type: "numeric"
+        description: "Total Credit Entry Dollar Amount (cents)"
+        validation:
+          - "numeric_10_digits"
+          - "non_negative"
+          - "must_match_actual_credits"
+      
+      company_identification:
+        position: [40, 47]
+        length: 8
+        type: "alphanumeric"
+        description: "Company Identification (must match batch header)"
+        validation:
+          - "must_match_batch_header"
+      
+      message_authentication_code:
+        position: [48, 67]
+        length: 20
+        type: "alphanumeric"
+        description: "Message Authentication Code (optional security)"
+        optional: true
+      
+      reserved:
+        position: [68, 72]
+        length: 5
+        type: "alphanumeric"
+        description: "Reserved (spaces)"
+      
+      originating_dfi_id:
+        position: [73, 79]
+        length: 7
+        type: "numeric"
+        description: "Originating DFI ID (must match batch header)"
+        validation:
+          - "must_match_batch_header"
+          - "numeric_7_digits"
+      
+      batch_number:
+        position: [80, 83]
+        length: 4
+        type: "numeric"
+        description: "Batch Number (must match batch header)"
+        validation:
+          - "must_match_batch_header"
+          - "numeric_4_digits"
+      
+      reserved_2:
+        position: [84, 94]
+        length: 11
+        type: "alphanumeric"
+        description: "Reserved (spaces)"
+
+# ============================================================================
+# RECORD TYPE 9: FILE CONTROL RECORD
+# ============================================================================
+  type_9:
+    name: "File Control Record"
+    code: "9"
+    description: "Provides control totals for entire file"
+    count_per_file: 1
+    position: "last"
+    
+    fields:
+      record_type_code:
+        position: 1
+        length: 1
+        type: "numeric"
+        valid_values: ["9"]
+        description: "File Control Record Identifier"
+      
+      batch_count:
+        position: [2, 7]
+        length: 6
+        type: "numeric"
+        description: "Batch Count (number of batches in file)"
+        validation:
+          - "numeric_6_digits"
+          - "must_match_actual_batch_count"
+      
+      block_count:
+        position: [8, 13]
+        length: 6
+        type: "numeric"
+        description: "Block Count (number of blocks)"
+        validation:
+          - "numeric_6_digits"
+          - "non_negative"
+      
+      entry_addenda_count:
+        position: [14, 19]
+        length: 6
+        type: "numeric"
+        description: "Entry/Addenda Count (total in file)"
+        validation:
+          - "numeric_6_digits"
+          - "must_match_actual_entry_count"
+      
+      entry_hash:
+        position: [20, 29]
+        length: 10
+        type: "numeric"
+        description: "Entry Hash (sum of all batch hashes)"
+        validation:
+          - "numeric_10_digits"
+          - "valid_file_entry_hash"
+      
+      total_debit_entry_dollar_amount:
+        position: [30, 39]
+        length: 10
+        type: "numeric"
+        description: "Total Debit Entry Dollar Amount (cents)"
+        validation:
+          - "numeric_10_digits"
+          - "non_negative"
+          - "must_match_actual_debits"
+      
+      total_credit_entry_dollar_amount:
+        position: [40, 49]
+        length: 10
+        type: "numeric"
+        description: "Total Credit Entry Dollar Amount (cents)"
+        validation:
+          - "numeric_10_digits"
+          - "non_negative"
+          - "must_match_actual_credits"
+      
+      reserved:
+        position: [50, 94]
+        length: 45
+        type: "alphanumeric"
+        description: "Reserved (spaces)"
+
+# ============================================================================
+# GLOBAL VALIDATION RULES
+# ============================================================================
+global_validations:
+  record_length:
+    description: "All records must be exactly 94 characters"
+    rule_type: "strict"
+  
+  character_set:
+    description: "Only ASCII characters (0x00-0x7F) allowed"
+    rule_type: "strict"
+  
+  field_padding:
+    numeric:
+      description: "Numeric fields must be left-justified, zero-filled"
+    alphanumeric:
+      description: "Alphanumeric fields must be left-justified, space-filled"
+  
+  date_format:
+    format: "YYMMDD"
+    description: "Dates in YYMMDD format (00-99 year, 01-12 month, 01-31 day)"
+    century_rule: "00-29=2000-2029, 30-99=1930-1999"
+  
+  file_balance:
+    description: "Total debits must equal total credits for valid file"
+    rule_type: "strict"
+  
+  record_sequence:
+    description: "Records must follow proper hierarchy and sequence"
+    rule_type: "strict"
+  
+  routing_check_digit:
+    algorithm: "NACHA"
+    formula: "(7×d1 + 3×d2 + 9×d3 + 7×d4 + 3×d5 + 9×d6 + 7×d7 + 3×d8) mod 10"
+    description: "Check digit validation for 9-digit routing numbers"
+  
+  entry_hash:
+    description: "Hash calculated from first 8 digits of receiving DFI IDs"
+    formula: "sum(dfi_ids) mod 10,000,000,000"
+  
+  trace_number_uniqueness:
+    description: "Each entry must have unique trace number (routing + sequence)"
+    rule_type: "strict"
+
+# ============================================================================
+# COMMON VALIDATION PATTERNS
+# ============================================================================
+validation_patterns:
+  numeric:
+    pattern: "^[0-9]+$"
+    description: "Numeric field (digits only)"
+  
+  alphanumeric:
+    pattern: "^[A-Z0-9 ]*$"
+    description: "Alphanumeric field (letters, numbers, spaces)"
+  
+  date_yymmdd:
+    pattern: "^[0-9]{6}$"
+    description: "6-digit date YYMMDD"
+    validation: "valid_calendar_date"
+  
+  time_hhmm:
+    pattern: "^[0-9]{4}$"
+    description: "4-digit time HHMM (24-hour format)"
+  
+  routing_number:
+    pattern: "^[0-9]{9}$"
+    length: 9
+    validation: "valid_check_digit"
+  
+  account_number:
+    pattern: "^[A-Z0-9 ]{17}$"
+    max_length: 17
+  
+  amount_cents:
+    pattern: "^[0-9]{10}$"
+    range: [0, 9999999999]
+  
+  sec_code:
+    pattern: "^[A-Z]{3}$"
+    valid_values: ["PPD", "CCD", "CTX", "ACK", "ATX", "STP", "TRC", "TRX"]
+
+# ============================================================================
+# ERROR SEVERITY LEVELS
+# ============================================================================
+error_severity:
+  critical:
+    description: "File cannot be processed; parsing fails"
+    examples: ["record_length_invalid", "unbalanced_amounts", "invalid_record_type"]
+  
+  error:
+    description: "File may not be accepted by ACH processor"
+    examples: ["invalid_routing_check_digit", "field_validation_failed"]
+  
+  warning:
+    description: "File may be processed with manual review"
+    examples: ["future_date", "missing_optional_field"]
+  
+  info:
+    description: "Non-critical informational messages"
+    examples: ["file_size", "processing_time"]
+
+# ============================================================================
+# VERSION HISTORY
+# ============================================================================
+version_history:
+  - version: "1.0"
+    date: "2026-02-14"
+    description: "Initial NACHA validation schema based on 2025 Operating Rules"
+    changes:
+      - "All 6 record types defined"
+      - "Complete field specifications"
+      - "Validation rules and constraints"
+      - "Global validation patterns"
