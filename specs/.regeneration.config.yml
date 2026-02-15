@@ -1,0 +1,189 @@
+# Specification Regeneration Configuration
+
+## Overview
+
+This configuration file defines how NACHA specifications are monitored, versioned, and regenerated when changes are made to the specification sources.
+
+## Monitor Configuration
+
+```yaml
+monitor:
+  # Source specifications directory
+  source_directory: "specs/official/"
+  
+  # File patterns to monitor
+  patterns:
+    - "*.md"  # Monitor all markdown files
+  
+  # Exclude patterns (optional)
+  exclude_patterns: []
+  
+  # Detection method
+  detection_method: "hash-based"  # or "git-diff"
+
+regenerate:
+  # Output directories
+  output_directory: "specs/yml/"
+  versioned_backup_directory: "specs/versioned/"
+  version_metadata_directory: "specs/.versions/"
+  
+  # Version increment rules
+  version_rules:
+    major: "File deleted or breaking change"
+    minor: "New file added"
+    patch: "File modified"
+  
+  # Trigger conditions
+  triggers:
+    - event: "file-added"
+      action: "increment-minor"
+    
+    - event: "file-modified"
+      action: "increment-patch"
+    
+    - event: "file-deleted"
+      action: "increment-major"
+
+versioning:
+  # Semantic versioning
+  scheme: "semantic"  # MAJOR.MINOR.PATCH
+  
+  # Initial version
+  initial_version: "1.0.0"
+  
+  # Version file location
+  version_file: "specs/yml/VERSION"
+  
+  # History tracking
+  history_file: "specs/.versions/version_history.json"
+  
+  # Backup strategy
+  backup_strategy: "timestamp-based"
+  backup_retention: 30  # days
+
+notifications:
+  # Alert on changes
+  create_alert: true
+  alert_directory: "specs/.versions/"
+  alert_template: "ALERT_{timestamp}.txt"
+  
+  # Git commit changes
+  auto_commit: true
+  commit_message_template: "chore: regenerated NACHA specification files\n\nAutomatic regeneration triggered by changes in specs/official/\nVersion bump: {old_version} → {new_version}"
+  
+  # GitHub Actions integration
+  github_actions: true
+  github_actions_workflow: ".github/workflows/regenerate-specs.yml"
+  
+  # Optional: Slack notifications
+  slack_webhook: "${SLACK_WEBHOOK}"  # Requires secret setup
+  
+  # Optional: Email notifications
+  email_enabled: false
+  email_recipients: []
+
+validation:
+  # Validate generated YAML
+  validate_yaml: true
+  
+  # Validate specification integrity
+  validate_specs: true
+  
+  # Run tests on generation
+  run_tests: true
+  
+  # Test command
+  test_command: "python -m pytest tests/specifications/"
+
+reporting:
+  # Generate reports
+  generate_report: true
+  report_format: ["json", "txt", "markdown"]
+  report_directory: "specs/.versions/"
+  
+  # Include in report
+  report_includes:
+    - file_changes
+    - version_bump_reason
+    - modified_fields
+    - validation_results
+    - timestamp
+    - author
+
+# Metadata for specification files
+specifications:
+  - filename: "NACHA_FILE_FORMAT_SPECIFICATION.md"
+    output: "nacha_validation_schema.yml"
+    description: "NACHA file format and record specifications"
+    monitoring: true
+  
+  - filename: "NACHA_IMPLEMENTATION_GUIDE.md"
+    output: "nacha_implementation_rules.yml"
+    description: "Implementation guide and best practices"
+    monitoring: true
+
+# CLI Usage Examples
+
+examples:
+  manual_regeneration: |
+    # Manually trigger regeneration
+    python scripts/regenerate_specs.py
+  
+  check_changes: |
+    # Check for changes without regenerating
+    python scripts/regenerate_specs.py --check-only
+  
+  force_version: |
+    # Force specific version
+    python scripts/regenerate_specs.py --force-version 2.0.0
+  
+  verbose_mode: |
+    # Run with detailed output
+    python scripts/regenerate_specs.py --verbose
+
+# GitHub Actions Workflow Triggers
+
+github_workflows:
+  - name: "regenerate-specs.yml"
+    triggers:
+      - "push to specs/official/"
+      - "pull_request with specs/official/ changes"
+      - "manual workflow_dispatch"
+    
+    jobs:
+      - "regenerate-specs"      # Main regeneration job
+      - "validate-specs"        # Validation job
+      - "notify-success"        # Success notification
+
+# Version History Example
+
+version_history_format: |
+  {
+    "versions": [
+      {
+        "version": "1.0.0",
+        "timestamp": "20260214_150230",
+        "changes_summary": "Initial version",
+        "backup_location": "specs/versioned/v1.0.0_20260214_150230"
+      },
+      {
+        "version": "1.0.1",
+        "timestamp": "20260214_152145",
+        "changes_summary": "Added: 1 file, Modified: 0, Deleted: 0",
+        "backup_location": "specs/versioned/v1.0.1_20260214_152145"
+      }
+    ],
+    "current_version": "1.0.1",
+    "last_updated": "2026-02-14T15:21:45.123456",
+    "file_hashes": {
+      "NACHA_FILE_FORMAT_SPECIFICATION.md": "sha256...",
+      "NACHA_IMPLEMENTATION_GUIDE.md": "sha256..."
+    }
+  }
+
+# Lock File (Optional)
+
+lock_file:
+  location: "specs/.versions/.regen.lock"
+  purpose: "Prevent concurrent regeneration runs"
+  timeout: 300  # seconds
