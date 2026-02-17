@@ -1,2 +1,4 @@
-# Core dependencies
-# Add your dependencies here
+PyYAML>=6.0
+
+# Optional / testing dependencies (uncomment to install)
+# pytest>=7.0
