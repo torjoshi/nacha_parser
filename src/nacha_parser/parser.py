@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class Parser:
@@ -38,8 +41,8 @@ class Parser:
             try:
                 with open(yml, "r") as f:
                     result[yml.stem] = yaml.safe_load(f) or {}
-            except Exception:
-                # Keep loading other files even if one fails
+            except Exception as exc:
+                logger.warning("Failed to load spec file %s: %s", yml, exc)
                 result[yml.stem] = {}
 
         return result
