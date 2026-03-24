@@ -10,6 +10,8 @@ class Parser:
     the provided `specs_dir` and exposes them as `vector`. Parsing a NACHA
     file/string returns a list of records with minimal mapping to the loaded
     schema (when available).
+
+    Call ``validate()`` to enforce field positional integrity against the schema.
     """
 
     def __init__(self, specs_dir: Optional[str] = None):
@@ -95,3 +97,100 @@ class Parser:
 
     def parse_file(self, filepath: str) -> Dict[str, Any]:
         return self.parse(filepath)
+
+    def validate(self, source: str) -> Dict[str, Any]:
+        """Parse ``source`` and validate each record against the YAML schema.
+
+        For every record the method checks:
+
+        1. The raw line is exactly 94 characters (NACHA standard).
+        2. Each field declared in the matching record-type schema is extracted
+           using its ``position`` and compared against the declared ``length``.
+
+        Returns a dict with the same ``records`` and ``vector`` keys as
+        :meth:`parse`, plus:
+
+        * ``errors`` – list of dicts with keys ``line_no``, ``record_type``,
+          ``field`` (``None`` for line-level errors), and ``message``.
+        * ``valid`` – ``True`` when ``errors`` is empty.
+        """
+        parsed = self.parse(source)
+        records = parsed["records"]
+        errors: List[Dict[str, Any]] = []
+
+        schema = self.vector.get("nacha_validation_schema", {}) or {}
+        record_types: Dict[str, Any] = (
+            schema.get("record_types", {}) if isinstance(schema, dict) else {}
+        )
+
+        for rec in records:
+            line: str = rec["raw"]
+            line_no: int = rec["line_no"]
+            rt: str = rec["record_type"]
+
+            # Rule 1: every NACHA record must be exactly 94 characters.
+            if len(line) != 94:
+                errors.append({
+                    "line_no": line_no,
+                    "record_type": rt,
+                    "field": None,
+                    "message": f"Record length is {len(line)}, expected 94",
+                })
+
+            # Rule 2: each declared field must occupy the right slice.
+            rt_def = self._find_record_type_def(record_types, rt)
+            if rt_def is None:
+                continue
+
+            for field_name, field_spec in rt_def.get("fields", {}).items():
+                pos = field_spec.get("position")
+                expected_len: Optional[int] = field_spec.get("length")
+                if pos is None or expected_len is None:
+                    continue
+
+                # Convert 1-based YAML positions to a Python slice.
+                if isinstance(pos, list):
+                    start, end = pos[0] - 1, pos[1]   # [start, end] inclusive
+                else:
+                    start, end = pos - 1, pos          # single character
+
+                actual_value = line[start:end]
+                if len(actual_value) != expected_len:
+                    errors.append({
+                        "line_no": line_no,
+                        "record_type": rt,
+                        "field": field_name,
+                        "message": (
+                            f"Field '{field_name}' at position {pos}: "
+                            f"expected length {expected_len}, got {len(actual_value)}"
+                        ),
+                    })
+
+        return {
+            "records": records,
+            "vector": self.vector,
+            "errors": errors,
+            "valid": len(errors) == 0,
+        }
+
+    def _find_record_type_def(
+        self, record_types: Dict[str, Any], rt: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return the schema dict for *rt* that contains a ``fields`` key.
+
+        Handles two key formats found in the wild:
+        * Direct keys: ``"1"``, ``"5"``, … (used in tests and simple schemas)
+        * Prefixed keys: ``"type_1"``, ``"type_5"``, … (used in the project YAML)
+        Falls back to scanning every entry for a matching ``code`` value.
+        """
+        for key in (rt, str(rt), f"type_{rt}"):
+            candidate = record_types.get(key)
+            if isinstance(candidate, dict) and "fields" in candidate:
+                return candidate
+
+        # Last resort: scan by the `code` field declared inside each entry.
+        for val in record_types.values():
+            if isinstance(val, dict) and val.get("code") == rt and "fields" in val:
+                return val
+
+        return None

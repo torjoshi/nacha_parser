@@ -1,0 +1,46 @@
+name: Validate Parser Against Schema
+
+on:
+  push:
+    paths:
+      - 'specs/official/**'
+      - 'specs/yml/**'
+      - 'src/**'
+      - 'tests/**'
+    branches:
+      - main
+      - develop
+  pull_request:
+    paths:
+      - 'specs/official/**'
+      - 'specs/yml/**'
+      - 'src/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run pytest suite
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.11']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install package and dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -v --tb=short
